@@ -6,7 +6,6 @@
 <title>HTML Email Previewer</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.15.1/beautify-html.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
@@ -18,22 +17,22 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:        #0f0f11;
-    --bg2:       #18181c;
-    --bg3:       #1e1e24;
-    --border:    rgba(255,255,255,0.08);
-    --border2:   rgba(255,255,255,0.14);
-    --text:      #e8e8ea;
-    --text2:     #888890;
-    --text3:     #555560;
-    --accent:    #7b6ef6;
-    --accent-bg: rgba(123,110,246,0.15);
-    --accent-bd: rgba(123,110,246,0.35);
-    --info-bg:   rgba(56,132,255,0.12);
-    --info-bd:   rgba(56,132,255,0.30);
-    --info-text: #7eb8ff;
-    --success:   #4caf7d;
-    --danger:    #e05c5c;
+    --bg:        #ffffff;
+    --bg2:       #f5f5f7;
+    --bg3:       #ebebef;
+    --border:    rgba(0,0,0,0.08);
+    --border2:   rgba(0,0,0,0.16);
+    --text:      #1a1a1e;
+    --text2:     #6a6a72;
+    --text3:     #a0a0aa;
+    --accent:    #6353e8;
+    --accent-bg: rgba(99,83,232,0.10);
+    --accent-bd: rgba(99,83,232,0.40);
+    --info-bg:   rgba(37,99,235,0.08);
+    --info-bd:   rgba(37,99,235,0.32);
+    --info-text: #2563eb;
+    --success:   #1d8a55;
+    --danger:    #c93a3a;
     --mono: 'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
     --sans: 'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;
   }
@@ -93,10 +92,10 @@
     display: inline-flex; align-items: center; gap: 5px;
   }
   .btn:hover { background: var(--bg3); color: var(--text); }
-  .btn:disabled { opacity: 0.28; cursor: default; pointer-events: none; }
+  .btn:disabled { opacity: 0.32; cursor: default; pointer-events: none; }
   .btn.primary { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
-  .btn.primary:hover { background: rgba(123,110,246,0.25); }
-  .btn.danger:hover { color: var(--danger); border-color: rgba(224,92,92,0.4); }
+  .btn.primary:hover { background: rgba(99,83,232,0.18); }
+  .btn.danger:hover { color: var(--danger); border-color: rgba(201,58,58,0.4); }
   .btn-icon { padding: 5px 9px; min-width: 32px; justify-content: center; font-size: 14px; }
 
   /* ── Paste nudge banner ── */
@@ -161,13 +160,121 @@
   .CodeMirror-lines { padding: 14px 0; }
   .CodeMirror pre.CodeMirror-line,
   .CodeMirror pre.CodeMirror-line-like { padding: 0 18px; }
-  .CodeMirror-gutters { border-right: 1px solid rgba(255,255,255,0.07); }
+  .CodeMirror-gutters { border-right: 1px solid rgba(0,0,0,0.07); background: var(--bg2); }
   .CodeMirror-linenumber { color: var(--text3); padding: 0 10px 0 8px; }
 
   #preview-frame { flex: 1; border: none; width: 100%; background: #fff; }
 
+  /* ── Braze Fields ── */
+  .braze-fields-section {
+    flex-shrink: 0; height: var(--bf-height);
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+  }
+  .braze-fields-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; height: 40px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .braze-fields-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10px; color: var(--text2);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .braze-fields-hint { font-size: 11px; color: var(--text3); }
+  .braze-fields-body {
+    flex: 1; min-height: 0;
+    padding: 14px 16px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    align-content: start;
+  }
+  .bf-row { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .bf-row.full { grid-column: 1 / -1; }
+  .bf-row label {
+    font-size: 10px; color: var(--text2);
+    font-family: var(--mono); letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .bf-row label .bf-type {
+    font-size: 9px; color: var(--text3);
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .bf-row input,
+  .bf-row textarea {
+    font-family: var(--mono); font-size: 12.5px;
+    padding: 7px 10px; width: 100%;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border2);
+    border-radius: 5px; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .bf-row textarea {
+    resize: vertical; min-height: 56px; max-height: 140px;
+    line-height: 1.5;
+  }
+  .bf-row input::placeholder,
+  .bf-row textarea::placeholder { color: var(--text3); }
+  .bf-row input:focus,
+  .bf-row textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .bf-row.invalid input,
+  .bf-row.invalid textarea {
+    border-color: var(--danger);
+    background: rgba(201,58,58,0.05);
+  }
+  .bf-row.invalid label { color: var(--danger); }
+
+  /* ── Braze Data ── */
+  .braze-section {
+    flex-shrink: 0; height: var(--bd-height);
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+  }
+  .braze-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; height: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .braze-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10px; color: var(--text2);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .braze-status {
+    font-size: 11px; font-family: var(--mono); color: var(--text3);
+    transition: color 0.2s;
+  }
+  .braze-status.ok { color: var(--success); }
+  .braze-status.err { color: var(--danger); }
+  .braze-body { flex: 1; min-height: 0; position: relative; }
+  #braze-input {
+    width: 100%; height: 100%; resize: none; border: none; outline: none;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    padding: 12px 240px 12px 18px;
+    background: var(--bg); color: var(--text2);
+    overflow-y: auto;
+  }
+  #braze-input::placeholder { color: var(--text3); }
+  .braze-actions {
+    position: absolute; right: 12px; top: 10px;
+    display: flex; gap: 6px;
+  }
+  .braze-actions .copy-btn { position: static; }
+
   /* ── Stringifier ── */
-  .str-section { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--bg2); }
+  .str-section {
+    flex-shrink: 0; height: var(--str-height);
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+  }
   .str-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 16px; height: 40px;
@@ -189,9 +296,9 @@
   .mode-btn:hover { color: var(--text2); border-color: var(--border2); }
   .mode-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
 
-  .str-body { position: relative; }
+  .str-body { flex: 1; min-height: 0; position: relative; }
   #stringified {
-    width: 100%; height: 90px; resize: none; border: none; outline: none;
+    width: 100%; height: 100%; resize: none; border: none; outline: none;
     font-family: var(--mono); font-size: 12px; line-height: 1.6;
     padding: 12px 112px 12px 18px;
     background: var(--bg); color: var(--text2);
@@ -206,11 +313,47 @@
     cursor: pointer; transition: all 0.15s; white-space: nowrap;
   }
   .copy-btn:hover { background: var(--bg3); }
-  .copy-btn.copied { color: var(--success); border-color: rgba(76,175,125,0.4); }
+  .copy-btn.copied { color: var(--success); border-color: rgba(29,138,85,0.45); }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Resizable section heights ── */
+  :root {
+    --bf-height: 280px;
+    --bd-height: 160px;
+    --str-height: 130px;
+  }
+
+  /* ── Splitter ── */
+  .splitter {
+    flex-shrink: 0;
+    height: 6px;
+    background: var(--border);
+    cursor: row-resize;
+    transition: background 0.15s;
+    position: relative;
+    z-index: 5;
+  }
+  .splitter::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px; height: 2px;
+    background: var(--text3);
+    border-radius: 1px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .splitter:hover { background: var(--accent-bg); }
+  .splitter:hover::after { opacity: 0.7; background: var(--accent); }
+  .splitter.dragging { background: var(--accent-bg); }
+  .splitter.dragging::after { opacity: 1; background: var(--accent); }
+
+  body.resizing { cursor: row-resize !important; user-select: none; }
+  body.resizing iframe { pointer-events: none; }
 </style>
 </head>
 <body>
@@ -282,6 +425,94 @@
   </div>
 </div>
 
+<div class="splitter" data-splitter="bf" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
+
+<!-- Braze Fields -->
+<div class="braze-fields-section">
+  <div class="braze-fields-header">
+    <div class="braze-fields-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="16" rx="2"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Braze Fields
+    </div>
+    <span class="braze-fields-hint">필드 입력 시 아래 Braze Data가 자동 동기화됩니다 · content는 HTML 편집기와 연동</span>
+  </div>
+  <div class="braze-fields-body">
+    <div class="bf-row" id="bf-row-campaignId">
+      <label>campaignId</label>
+      <input type="text" id="bf-campaignId" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-campaignName">
+      <label>campaignName</label>
+      <input type="text" id="bf-campaignName" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-templateId">
+      <label>templateId <span class="bf-type">nullable</span></label>
+      <input type="text" id="bf-templateId" oninput="syncJsonFromForm()" spellcheck="false" placeholder="비워두면 null">
+    </div>
+    <div class="bf-row" id="bf-row-memberKey">
+      <label>memberKey</label>
+      <input type="text" id="bf-memberKey" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-senderName">
+      <label>senderName</label>
+      <input type="text" id="bf-senderName" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-senderEmail">
+      <label>senderEmail</label>
+      <input type="text" id="bf-senderEmail" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row full" id="bf-row-title">
+      <label>title</label>
+      <input type="text" id="bf-title" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-statsId">
+      <label>statsId <span class="bf-type">nullable</span></label>
+      <input type="text" id="bf-statsId" oninput="syncJsonFromForm()" spellcheck="false" placeholder="비워두면 null">
+    </div>
+    <div class="bf-row full" id="bf-row-templateParameter">
+      <label>templateParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-templateParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder="{}"></textarea>
+    </div>
+    <div class="bf-row full" id="bf-row-emailParameter">
+      <label>emailParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-emailParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder="{}"></textarea>
+    </div>
+    <div class="bf-row full" id="bf-row-etcParameter">
+      <label>etcParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-etcParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder='{"CALLER": "..."}'></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="splitter" data-splitter="bd" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
+
+<!-- Braze Data -->
+<div class="braze-section">
+  <div class="braze-header">
+    <div class="braze-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Braze Data
+    </div>
+    <span class="braze-status" id="braze-status">대기 중</span>
+  </div>
+  <div class="braze-body">
+    <textarea id="braze-input" spellcheck="false"
+      placeholder='Braze JSON을 붙여넣고 [JSON 파싱] 클릭 → 위 폼/HTML 편집기에 자동 채움. 폼/편집기 수정 시 이 영역도 자동 동기화됩니다.'></textarea>
+    <div class="braze-actions">
+      <button class="copy-btn" id="braze-parse-btn" onclick="parseBrazeJson()">JSON 파싱</button>
+      <button class="copy-btn" id="braze-copy-btn" onclick="copyBrazeJson()">복사</button>
+      <button class="copy-btn" onclick="clearBraze()">지우기</button>
+    </div>
+  </div>
+</div>
+
+<div class="splitter" data-splitter="str" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
+
 <!-- Stringifier -->
 <div class="str-section">
   <div class="str-header">
@@ -352,7 +583,7 @@
   function initEditor() {
     editor = CodeMirror.fromTextArea(document.getElementById('html-input'), {
       mode: 'htmlmixed',
-      theme: 'dracula',
+      theme: 'default',
       lineNumbers: true,
       lineWrapping: false,
       tabSize: 2,
@@ -377,6 +608,7 @@
       debounceTimer = setTimeout(function() {
         updateAll();
         syncUndoRedo();
+        syncJsonFromForm();
       }, 180);
     });
 
@@ -406,7 +638,7 @@
   function updatePreview(html) {
     var frame = document.getElementById('preview-frame');
     if (!html.trim()) {
-      frame.srcdoc = '<body style="display:flex;align-items:center;justify-content:center;height:100%;font-family:sans-serif;color:#ccc;font-size:13px;margin:0;background:#fafafa"><p>HTML을 입력하면 여기에 렌더링됩니다</p></body>';
+      frame.srcdoc = '<body style="display:flex;align-items:center;justify-content:center;height:100%;font-family:sans-serif;color:#9a9aa3;font-size:13px;margin:0;background:#fafafa"><p>HTML을 입력하면 여기에 렌더링됩니다</p></body>';
       document.getElementById('preview-status').textContent = '대기 중';
       return;
     }
@@ -443,6 +675,170 @@
     });
   }
 
+  /* ── Braze Data ── */
+  function setBrazeStatus(text, kind) {
+    var el = document.getElementById('braze-status');
+    el.textContent = text;
+    el.classList.remove('ok', 'err');
+    if (kind) el.classList.add(kind);
+  }
+
+  function findContentField(obj) {
+    if (obj == null) return null;
+    if (typeof obj === 'string') return null;
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) {
+        var found = findContentField(obj[i]);
+        if (found != null) return found;
+      }
+      return null;
+    }
+    if (typeof obj === 'object') {
+      if (typeof obj.content === 'string') return obj.content;
+      for (var k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, k)) {
+          var f = findContentField(obj[k]);
+          if (f != null) return f;
+        }
+      }
+    }
+    return null;
+  }
+
+  /* ── Braze Fields ↔ Braze Data 양방향 동기화 ── */
+  var BRAZE_FIELDS = [
+    { key: 'campaignId' },
+    { key: 'campaignName' },
+    { key: 'templateId',        nullable: true },
+    { key: 'memberKey' },
+    { key: 'senderName' },
+    { key: 'senderEmail' },
+    { key: 'title' },
+    { key: 'statsId',           nullable: true },
+    { key: 'templateParameter', json: true },
+    { key: 'emailParameter',    json: true },
+    { key: 'etcParameter',      json: true }
+  ];
+
+  var brazeJsonSyncTimer;
+
+  function bfElement(key) { return document.getElementById('bf-' + key); }
+  function bfSetInvalid(key, invalid) {
+    var row = document.getElementById('bf-row-' + key);
+    if (row) row.classList.toggle('invalid', !!invalid);
+  }
+
+  function bfReadValue(field) {
+    var el = bfElement(field.key);
+    if (!el) return { ok: true, value: null };
+    var val = el.value;
+    if (field.json) {
+      if (!val.trim()) return { ok: true, value: {} };
+      try { return { ok: true, value: JSON.parse(val) }; }
+      catch (e) { return { ok: false, error: e.message }; }
+    }
+    if (field.nullable) {
+      return { ok: true, value: val.trim() === '' ? null : val };
+    }
+    return { ok: true, value: val };
+  }
+
+  // Build Braze payload object preserving the canonical field order:
+  // campaignId, campaignName, templateId, memberKey, senderName, senderEmail,
+  // title, content, statsId, templateParameter, emailParameter, etcParameter
+  function buildBrazePayload() {
+    var obj = {};
+    var allValid = true;
+    for (var i = 0; i < BRAZE_FIELDS.length; i++) {
+      var f = BRAZE_FIELDS[i];
+      var r = bfReadValue(f);
+      bfSetInvalid(f.key, !r.ok);
+      if (!r.ok) { allValid = false; obj[f.key] = null; }
+      else obj[f.key] = r.value;
+      if (f.key === 'title') {
+        obj.content = editor ? editor.getValue() : '';
+      }
+    }
+    return { obj: obj, valid: allValid };
+  }
+
+  function applyJsonFromForm(showStatus) {
+    var r = buildBrazePayload();
+    document.getElementById('braze-input').value = JSON.stringify(r.obj, null, 2);
+    if (showStatus !== false) {
+      if (r.valid) setBrazeStatus('동기화됨', 'ok');
+      else setBrazeStatus('필드 JSON 오류 — 빨간 테두리 확인', 'err');
+    }
+  }
+
+  function syncJsonFromForm() {
+    clearTimeout(brazeJsonSyncTimer);
+    brazeJsonSyncTimer = setTimeout(function() { applyJsonFromForm(true); }, 150);
+  }
+
+  function populateFormFromObject(parsed) {
+    parsed = parsed || {};
+    for (var i = 0; i < BRAZE_FIELDS.length; i++) {
+      var f = BRAZE_FIELDS[i];
+      var el = bfElement(f.key);
+      if (!el) continue;
+      var v = parsed[f.key];
+      if (f.json) {
+        el.value = (v == null) ? '' : JSON.stringify(v, null, 2);
+      } else {
+        el.value = (v == null) ? '' : String(v);
+      }
+      bfSetInvalid(f.key, false);
+    }
+  }
+
+  function parseBrazeJson() {
+    var raw = document.getElementById('braze-input').value.trim();
+    if (!raw) { setBrazeStatus('JSON을 입력하세요', 'err'); return; }
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (e) { setBrazeStatus('JSON 파싱 실패: ' + e.message, 'err'); return; }
+    populateFormFromObject(parsed);
+    var content = (typeof parsed.content === 'string') ? parsed.content : findContentField(parsed);
+    if (typeof content === 'string' && editor) {
+      editor.setValue(content);
+      editor.clearHistory();
+      hideNudge();
+      updateAll();
+      syncUndoRedo();
+    }
+    applyJsonFromForm(false);
+    setBrazeStatus('파싱 완료 · 폼/편집기 동기화됨', 'ok');
+  }
+
+  function copyBrazeJson() {
+    var val = document.getElementById('braze-input').value;
+    if (!val) { setBrazeStatus('복사할 데이터가 없습니다', 'err'); return; }
+    var btn = document.getElementById('braze-copy-btn');
+    function done() {
+      btn.textContent = '복사됨 ✓';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = '복사'; btn.classList.remove('copied'); }, 1800);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(val).then(done).catch(function() {
+        document.getElementById('braze-input').select();
+        document.execCommand('copy');
+        done();
+      });
+    } else {
+      document.getElementById('braze-input').select();
+      document.execCommand('copy');
+      done();
+    }
+  }
+
+  function clearBraze() {
+    document.getElementById('braze-input').value = '';
+    populateFormFromObject({});
+    setBrazeStatus('대기 중', null);
+  }
+
   /* ── Clear ── */
   function clearEditor() {
     if (!editor) return;
@@ -462,9 +858,123 @@
     syncUndoRedo();
   }
 
+  /* ── Resizable splitters ── */
+  var DEFAULT_SIZES = { bf: 280, bd: 160, str: 130 };
+  var MIN_HEIGHT = 60;
+  var SIZE_STORAGE_KEY = 'braze-previewer-sizes-v1';
+
+  var SIZE_MAP = {
+    bf:  { cssVar: '--bf-height',  defaults: 'bf'  },
+    bd:  { cssVar: '--bd-height',  defaults: 'bd'  },
+    str: { cssVar: '--str-height', defaults: 'str' }
+  };
+
+  function getCssPx(varName) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(varName);
+    return parseInt(v, 10) || 0;
+  }
+  function setCssPx(varName, px) {
+    document.documentElement.style.setProperty(varName, px + 'px');
+  }
+
+  function applySizes(sizes) {
+    Object.keys(SIZE_MAP).forEach(function(k) {
+      setCssPx(SIZE_MAP[k].cssVar, sizes[k]);
+    });
+  }
+  function loadSizes() {
+    try {
+      var raw = localStorage.getItem(SIZE_STORAGE_KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.bf === 'number' && typeof s.bd === 'number' && typeof s.str === 'number') {
+          return { bf: s.bf, bd: s.bd, str: s.str };
+        }
+      }
+    } catch (e) {}
+    return Object.assign({}, DEFAULT_SIZES);
+  }
+  function saveSizes() {
+    var s = {
+      bf:  getCssPx('--bf-height'),
+      bd:  getCssPx('--bd-height'),
+      str: getCssPx('--str-height')
+    };
+    try { localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function resetSizes() {
+    applySizes(DEFAULT_SIZES);
+    saveSizes();
+    if (editor) editor.refresh();
+  }
+
+  function initSplitters() {
+    document.querySelectorAll('.splitter').forEach(function(sp) {
+      var which = sp.dataset.splitter; // 'bf' | 'bd' | 'str'
+
+      sp.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        try { sp.setPointerCapture(e.pointerId); } catch (err) {}
+        sp.classList.add('dragging');
+        document.body.classList.add('resizing');
+
+        var startY = e.clientY;
+        var startBF  = getCssPx('--bf-height');
+        var startBD  = getCssPx('--bd-height');
+        var startStr = getCssPx('--str-height');
+
+        function onMove(ev) {
+          var delta = ev.clientY - startY;
+          if (which === 'bf') {
+            // splitter above Braze Fields: drag down → BF shrinks (main grows)
+            var newBF = Math.max(MIN_HEIGHT, startBF - delta);
+            // also cap by available height (leave at least 80px for main)
+            var topbarH = 54, nudgeH = document.getElementById('fmt-nudge').classList.contains('show') ? 34 : 0;
+            var maxBF = window.innerHeight - topbarH - nudgeH - startBD - startStr - 80 - 18; // splitters
+            newBF = Math.min(newBF, Math.max(MIN_HEIGHT, maxBF));
+            setCssPx('--bf-height', newBF);
+          } else if (which === 'bd') {
+            // splitter between BF and BD: drag down → BF grows, BD shrinks
+            var newBF2 = startBF + delta;
+            var newBD2 = startBD - delta;
+            if (newBF2 < MIN_HEIGHT || newBD2 < MIN_HEIGHT) return;
+            setCssPx('--bf-height', newBF2);
+            setCssPx('--bd-height', newBD2);
+          } else if (which === 'str') {
+            // splitter between BD and Str: drag down → BD grows, Str shrinks
+            var newBD3  = startBD + delta;
+            var newStr3 = startStr - delta;
+            if (newBD3 < MIN_HEIGHT || newStr3 < MIN_HEIGHT) return;
+            setCssPx('--bd-height', newBD3);
+            setCssPx('--str-height', newStr3);
+          }
+          if (editor) editor.refresh();
+        }
+
+        function onUp() {
+          sp.classList.remove('dragging');
+          document.body.classList.remove('resizing');
+          sp.removeEventListener('pointermove', onMove);
+          sp.removeEventListener('pointerup', onUp);
+          sp.removeEventListener('pointercancel', onUp);
+          saveSizes();
+          if (editor) editor.refresh();
+        }
+
+        sp.addEventListener('pointermove', onMove);
+        sp.addEventListener('pointerup', onUp);
+        sp.addEventListener('pointercancel', onUp);
+      });
+
+      sp.addEventListener('dblclick', function() { resetSizes(); });
+    });
+  }
+
   window.addEventListener('DOMContentLoaded', function() {
+    applySizes(loadSizes());
     initEditor();
     updateAll();
+    initSplitters();
   });
 </script>
 </body>
