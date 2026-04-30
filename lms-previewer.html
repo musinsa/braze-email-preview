@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LMS Previewer</title>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #ffffff;
+    --bg2:       #f5f5f7;
+    --bg3:       #ebebef;
+    --border:    rgba(0,0,0,0.08);
+    --border2:   rgba(0,0,0,0.16);
+    --text:      #1a1a1e;
+    --text2:     #6a6a72;
+    --text3:     #a0a0aa;
+    --accent:    #6353e8;
+    --accent-bg: rgba(99,83,232,0.10);
+    --accent-bd: rgba(99,83,232,0.40);
+    --info-text: #2563eb;
+    --success:   #1d8a55;
+    --warn:      #d18440;
+    --danger:    #c93a3a;
+    --mono: 'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+    --sans: 'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;
+
+    --bf-height: 420px;
+    --pv-width: 420px;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 54px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    font-size: 14px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.3px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .logo-icon {
+    width: 26px; height: 26px; background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .live-badge {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text2);
+    font-family: var(--mono);
+    padding: 3px 10px;
+    border: 1px solid var(--border); border-radius: 20px;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite; flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .btn {
+    font-size: 12px; font-family: var(--sans); font-weight: 500;
+    padding: 5px 13px; border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent; color: var(--text2);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+    text-decoration: none;
+  }
+  .btn:hover { background: var(--bg3); color: var(--text); }
+  .btn.danger:hover { color: var(--danger); border-color: rgba(201,58,58,0.4); }
+
+  /* ── Splitter ── */
+  .splitter {
+    flex-shrink: 0; height: 6px;
+    background: var(--border);
+    cursor: row-resize;
+    transition: background 0.15s;
+    position: relative; z-index: 5;
+  }
+  .splitter::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px; height: 2px;
+    background: var(--text3);
+    border-radius: 1px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .splitter:hover { background: var(--accent-bg); }
+  .splitter:hover::after { opacity: 0.7; background: var(--accent); }
+  .splitter.dragging { background: var(--accent-bg); }
+  .splitter.dragging::after { opacity: 1; background: var(--accent); }
+
+  /* Vertical splitter — drag horizontally to resize widths */
+  .splitter-v {
+    flex-shrink: 0; width: 6px;
+    background: var(--border);
+    cursor: col-resize;
+    transition: background 0.15s;
+    position: relative; z-index: 5;
+  }
+  .splitter-v::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px; height: 36px;
+    background: var(--text3);
+    border-radius: 1px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .splitter-v:hover { background: var(--accent-bg); }
+  .splitter-v:hover::after { opacity: 0.7; background: var(--accent); }
+  .splitter-v.dragging { background: var(--accent-bg); }
+  .splitter-v.dragging::after { opacity: 1; background: var(--accent); }
+
+  body.resizing-row { cursor: row-resize !important; user-select: none; }
+  body.resizing-col { cursor: col-resize !important; user-select: none; }
+
+  /* ── Section header (shared) ── */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; height: 40px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .section-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10px; color: var(--text2);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .section-status {
+    font-size: 11px; font-family: var(--mono); color: var(--text3);
+    transition: color 0.2s;
+  }
+  .section-status.ok { color: var(--success); }
+  .section-status.err { color: var(--danger); }
+  .section-hint { font-size: 11px; color: var(--text3); }
+
+  /* ── Top row (Braze Data + Preview side-by-side) ── */
+  .top-row {
+    flex: 1; display: flex; min-height: 0;
+  }
+
+  /* ── Braze Data ── */
+  .braze-section {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+  }
+  .braze-body { flex: 1; min-height: 0; position: relative; }
+  #braze-input {
+    width: 100%; height: 100%; resize: none; border: none; outline: none;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    padding: 12px 240px 12px 18px;
+    background: var(--bg); color: var(--text2);
+    overflow-y: auto;
+  }
+  #braze-input::placeholder { color: var(--text3); }
+  .braze-actions {
+    position: absolute; right: 12px; top: 10px;
+    display: flex; gap: 6px;
+  }
+  .braze-actions .copy-btn { position: static; }
+  .copy-btn {
+    font-size: 12px; font-family: var(--sans); font-weight: 500;
+    padding: 5px 16px; border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: var(--bg2); color: var(--text);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .copy-btn:hover { background: var(--bg3); }
+  .copy-btn.copied { color: var(--success); border-color: rgba(29,138,85,0.45); }
+
+  /* ── Braze Fields ── */
+  .braze-fields-section {
+    flex-shrink: 0; height: var(--bf-height);
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+  }
+  .braze-fields-body {
+    flex: 1; min-height: 0;
+    padding: 14px 16px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    align-content: start;
+  }
+  .bf-row { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .bf-row.full { grid-column: 1 / -1; }
+  .bf-row label {
+    font-size: 10px; color: var(--text2);
+    font-family: var(--mono); letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .bf-row label .bf-type {
+    font-size: 9px; color: var(--text3);
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .bf-row label .bf-counter {
+    margin-left: auto;
+    font-size: 10px; color: var(--text3);
+    font-family: var(--mono);
+  }
+  .bf-row label .bf-counter.warn { color: var(--warn); }
+  .bf-row label .bf-counter.over { color: var(--danger); font-weight: 600; }
+  .bf-row input,
+  .bf-row textarea {
+    font-family: var(--mono); font-size: 12.5px;
+    padding: 7px 10px; width: 100%;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border2);
+    border-radius: 5px; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .bf-row textarea {
+    resize: vertical; min-height: 80px; max-height: 240px;
+    line-height: 1.6;
+  }
+  /* LMS의 핵심 입력 — content를 크게 표시 */
+  #bf-content {
+    min-height: 280px; max-height: 720px;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 10px 12px;
+  }
+  #bf-row-content > label { color: var(--text); font-weight: 600; }
+  .bf-row input::placeholder,
+  .bf-row textarea::placeholder { color: var(--text3); }
+  .bf-row input:focus,
+  .bf-row textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .bf-row.invalid input,
+  .bf-row.invalid textarea {
+    border-color: var(--danger);
+    background: rgba(201,58,58,0.05);
+  }
+  .bf-row.invalid label { color: var(--danger); }
+
+  /* ── Preview ── */
+  .preview-section {
+    width: var(--pv-width); flex-shrink: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+  }
+  .preview-body {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 16px 16px 22px;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,83,232,0.06), transparent 70%),
+      linear-gradient(180deg, #ecedf2 0%, #dcdde3 100%);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+  }
+
+  .preview-info {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 22px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .preview-info .ph-msg-type {
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-size: 10.5px;
+  }
+  .preview-info .ph-msg-type.sms  { background: rgba(29,138,85,0.15); color: var(--success); }
+  .preview-info .ph-msg-type.lms  { background: rgba(99,83,232,0.15); color: var(--accent); }
+  .preview-info .ph-msg-type.over { background: rgba(201,58,58,0.15); color: var(--danger); }
+  .preview-info .ph-bytes { display: flex; gap: 12px; }
+  .preview-info .ph-bytes .warn { color: var(--warn); }
+  .preview-info .ph-bytes .over { color: var(--danger); font-weight: 700; }
+
+  /* iPhone-style frame */
+  .phone-frame {
+    width: 320px;
+    background: #1a1a1e;
+    border-radius: 46px;
+    padding: 11px;
+    box-shadow:
+      0 30px 60px rgba(20,20,30,0.22),
+      0 8px 18px rgba(20,20,30,0.10),
+      inset 0 0 0 2px #2c2c34;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .phone-screen {
+    background: #ffffff;
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+    min-height: 340px;
+  }
+  .phone-notch {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 118px; height: 26px;
+    background: #1a1a1e;
+    border-radius: 0 0 18px 18px;
+    z-index: 4;
+  }
+
+  .status-bar {
+    height: 46px;
+    padding: 0 28px 0 26px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: #000;
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+  .status-time {
+    font-weight: 700; font-size: 14px;
+    letter-spacing: -0.2px;
+    font-family: var(--sans);
+  }
+  .status-icons {
+    display: flex; gap: 5px; align-items: center;
+    color: #000;
+  }
+  .status-icons svg { display: block; }
+
+  .nav-bar {
+    height: 44px;
+    padding: 0 12px;
+    background: rgba(248,248,250,0.92);
+    border-bottom: 0.5px solid rgba(0,0,0,0.10);
+    display: flex; align-items: center; gap: 4px;
+    flex-shrink: 0;
+  }
+  .nav-back {
+    color: #007AFF;
+    font-size: 26px;
+    line-height: 1;
+    padding: 0 8px;
+    font-weight: 300;
+  }
+  .nav-title {
+    flex: 1; text-align: center;
+    font-size: 16px; font-weight: 600;
+    color: #000;
+    letter-spacing: -0.2px;
+  }
+  .nav-spacer { width: 32px; flex-shrink: 0; }
+
+  .msg-area {
+    flex: 1;
+    padding: 14px 12px 12px;
+    overflow-y: auto;
+    background: #fff;
+    display: flex; flex-direction: column;
+    gap: 4px;
+  }
+  .msg-date {
+    text-align: center;
+    font-size: 11px; color: #8e8e93;
+    font-weight: 600;
+    margin: 4px 0 10px;
+    letter-spacing: -0.1px;
+  }
+  .msg-row {
+    display: flex; flex-direction: column;
+    align-items: flex-start;
+    max-width: 88%;
+  }
+  .msg-bubble {
+    background: #e9e9eb;
+    border-radius: 18px;
+    padding: 10px 14px;
+    font-size: 15px;
+    line-height: 1.42;
+    color: #000;
+    word-break: break-word;
+    position: relative;
+    letter-spacing: -0.1px;
+    max-width: 100%;
+  }
+  .msg-title {
+    display: block;
+    font-weight: 700;
+    font-size: 14.5px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 0.5px solid rgba(0,0,0,0.12);
+    word-break: break-word;
+  }
+  .msg-title.empty {
+    color: #8e8e93; font-weight: 400; font-style: italic;
+  }
+  .msg-content {
+    display: block;
+    word-break: break-word;
+    white-space: pre-wrap;
+    font-size: 14.5px;
+  }
+  .msg-content.empty { color: #8e8e93; font-style: italic; }
+
+  .msg-time {
+    font-size: 11px; color: #8e8e93;
+    margin-top: 4px; padding-left: 8px;
+    letter-spacing: -0.1px;
+  }
+
+  .home-indicator {
+    height: 5px; width: 134px;
+    background: #000;
+    border-radius: 3px;
+    margin: 8px auto 8px;
+    flex-shrink: 0;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+          <rect x="5" y="2" width="14" height="20" rx="2"/>
+          <line x1="12" y1="18" x2="12.01" y2="18"/>
+        </svg>
+      </div>
+      LMS Previewer
+    </div>
+    <div class="live-badge"><span class="live-dot"></span>실시간 미리보기</div>
+  </div>
+  <div class="topbar-right">
+    <a class="btn" href="index.html">← Index</a>
+    <button class="btn" onclick="loadSample()">샘플</button>
+    <button class="btn danger" onclick="clearAll()">초기화</button>
+  </div>
+</div>
+
+<!-- Top row: Braze Data + Preview side-by-side -->
+<div class="top-row">
+
+<!-- Braze Data -->
+<div class="braze-section">
+  <div class="section-header">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      Braze Data
+    </div>
+    <span class="section-status" id="braze-status">대기 중</span>
+  </div>
+  <div class="braze-body">
+    <textarea id="braze-input" spellcheck="false"
+      placeholder='Braze JSON을 붙여넣고 [JSON 파싱] 클릭 → 아래 폼/미리보기에 자동 채움. 폼 수정 시 이 영역도 자동 동기화됩니다.'></textarea>
+    <div class="braze-actions">
+      <button class="copy-btn" onclick="parseBrazeJson()">JSON 파싱</button>
+      <button class="copy-btn" id="braze-copy-btn" onclick="copyBrazeJson()">복사</button>
+      <button class="copy-btn" onclick="clearBraze()">지우기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Splitter (vertical) — drag horizontally to resize Braze Data ↔ Preview width -->
+<div class="splitter-v" data-splitter="preview-width" title="좌우 드래그로 너비 조정 · 더블클릭으로 초기화"></div>
+
+<!-- LMS Preview (alongside Braze Data above) -->
+<div class="preview-section">
+  <div class="section-header">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="5" y="2" width="14" height="20" rx="2"/>
+        <line x1="12" y1="18" x2="12.01" y2="18"/>
+      </svg>
+      LMS 미리보기
+    </div>
+    <span class="section-status" id="preview-status">대기 중</span>
+  </div>
+  <div class="preview-body">
+    <div class="preview-info">
+      <span class="ph-msg-type sms" id="ph-msg-type">SMS</span>
+      <div class="ph-bytes">
+        <span id="ph-title-bytes-wrap">title <span id="ph-title-bytes">0</span>B</span>
+        <span id="ph-content-bytes-wrap">content <span id="ph-content-bytes">0</span>B</span>
+      </div>
+    </div>
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="status-bar">
+          <div class="status-time" id="ph-status-time">9:41</div>
+          <div class="status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true">
+              <rect x="0" y="7" width="3" height="4" rx="0.6"/>
+              <rect x="4.5" y="5" width="3" height="6" rx="0.6"/>
+              <rect x="9" y="3" width="3" height="8" rx="0.6"/>
+              <rect x="13.5" y="0" width="3" height="11" rx="0.6"/>
+            </svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor" aria-hidden="true">
+              <path d="M7.5 8.5a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zM3.7 5.7a5.4 5.4 0 0 1 7.6 0l-1.3 1.3a3.6 3.6 0 0 0-5 0L3.7 5.7zM0.5 2.5a9.7 9.7 0 0 1 14 0l-1.3 1.3a7.9 7.9 0 0 0-11.4 0L0.5 2.5z"/>
+            </svg>
+            <svg width="26" height="11" viewBox="0 0 26 11" aria-hidden="true">
+              <rect x="0.5" y="0.5" width="22" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.45"/>
+              <rect x="2" y="2" width="19" height="7" rx="1.4" fill="currentColor"/>
+              <rect x="23.2" y="3.5" width="1.6" height="4" rx="0.7" fill="currentColor" opacity="0.45"/>
+            </svg>
+          </div>
+        </div>
+        <div class="nav-bar">
+          <div class="nav-back">‹</div>
+          <div class="nav-title">메시지</div>
+          <div class="nav-spacer"></div>
+        </div>
+        <div class="msg-area">
+          <div class="msg-date" id="ph-msg-date">오늘 <span id="ph-msg-date-time">오후 12:34</span></div>
+          <div class="msg-row">
+            <div class="msg-bubble">
+              <span class="msg-title empty" id="ph-title">제목을 입력하세요</span>
+              <span class="msg-content empty" id="ph-content">본문을 입력하세요...</span>
+            </div>
+            <div class="msg-time" id="ph-bubble-time">오후 12:34</div>
+          </div>
+        </div>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end top-row -->
+
+<!-- Splitter: between top row and form -->
+<div class="splitter" data-splitter="form" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
+
+<!-- Braze Fields -->
+<div class="braze-fields-section">
+  <div class="section-header">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="16" rx="2"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Braze Fields
+    </div>
+    <span class="section-hint">필드 수정 시 위쪽 Braze Data 및 미리보기가 자동 동기화됩니다</span>
+  </div>
+  <div class="braze-fields-body">
+    <!-- 메시지 본문 (LMS의 핵심) -->
+    <div class="bf-row full" id="bf-row-title">
+      <label>title <span class="bf-counter" id="counter-title">0 / 30 bytes</span></label>
+      <input type="text" id="bf-title" oninput="syncJsonFromForm()" spellcheck="false" placeholder="LMS 제목 (권장 30 bytes 이내)">
+    </div>
+    <div class="bf-row full" id="bf-row-content">
+      <label>content <span class="bf-counter" id="counter-content">0 / 2000 bytes</span></label>
+      <textarea id="bf-content" oninput="syncJsonFromForm()" spellcheck="false" placeholder="LMS 본문 — SMS: ≤90 bytes / LMS: ≤2000 bytes (한글 2B, ASCII 1B)"></textarea>
+    </div>
+
+    <!-- 식별자 -->
+    <div class="bf-row" id="bf-row-campaignId">
+      <label>campaignId</label>
+      <input type="text" id="bf-campaignId" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-campaignName">
+      <label>campaignName</label>
+      <input type="text" id="bf-campaignName" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-templateId">
+      <label>templateId <span class="bf-type">nullable</span></label>
+      <input type="text" id="bf-templateId" oninput="syncJsonFromForm()" spellcheck="false" placeholder="비워두면 null">
+    </div>
+    <div class="bf-row" id="bf-row-memberKey">
+      <label>memberKey</label>
+      <input type="text" id="bf-memberKey" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-statsId">
+      <label>statsId <span class="bf-type">nullable</span></label>
+      <input type="text" id="bf-statsId" oninput="syncJsonFromForm()" spellcheck="false" placeholder="비워두면 null">
+    </div>
+
+    <!-- 파라미터 객체 -->
+    <div class="bf-row full" id="bf-row-templateParameter">
+      <label>templateParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-templateParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder="{}"></textarea>
+    </div>
+    <div class="bf-row full" id="bf-row-smsParameter">
+      <label>smsParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-smsParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder="{}"></textarea>
+    </div>
+    <div class="bf-row full" id="bf-row-etcParameter">
+      <label>etcParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-etcParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder='{"CALLER": "..."}'></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Field config ── */
+  // Field order in payload (content inserted right after title)
+  var BRAZE_FIELDS = [
+    { key: 'campaignId' },
+    { key: 'campaignName' },
+    { key: 'templateId',        nullable: true },
+    { key: 'memberKey' },
+    { key: 'title' },
+    { key: 'statsId',           nullable: true },
+    { key: 'templateParameter', json: true },
+    { key: 'smsParameter',      json: true },
+    { key: 'etcParameter',      json: true }
+  ];
+
+  var brazeJsonSyncTimer;
+  var SMS_LIMIT = 90;     // bytes
+  var LMS_LIMIT = 2000;   // bytes
+  var TITLE_LIMIT = 30;   // bytes (recommended)
+
+  /* ── Status helpers ── */
+  function setBrazeStatus(text, kind) {
+    var el = document.getElementById('braze-status');
+    el.textContent = text;
+    el.classList.remove('ok', 'err');
+    if (kind) el.classList.add(kind);
+  }
+  function setPreviewStatus(text, kind) {
+    var el = document.getElementById('preview-status');
+    el.textContent = text;
+    el.classList.remove('ok', 'err');
+    if (kind) el.classList.add(kind);
+  }
+
+  /* ── KS_C_5601 / EUC-KR style byte count ── */
+  // ASCII (≤0x7F): 1 byte, 그 외 (한글 포함 다국어): 2 bytes
+  function countBytes(str) {
+    if (!str) return 0;
+    var b = 0;
+    for (var i = 0; i < str.length; i++) {
+      b += str.charCodeAt(i) <= 0x007F ? 1 : 2;
+    }
+    return b;
+  }
+
+  /* ── Form ↔ JSON helpers ── */
+  function bfElement(key) { return document.getElementById('bf-' + key); }
+  function bfSetInvalid(key, invalid) {
+    var row = document.getElementById('bf-row-' + key);
+    if (row) row.classList.toggle('invalid', !!invalid);
+  }
+  function bfReadValue(field) {
+    var el = bfElement(field.key);
+    if (!el) return { ok: true, value: null };
+    var val = el.value;
+    if (field.json) {
+      if (!val.trim()) return { ok: true, value: {} };
+      try { return { ok: true, value: JSON.parse(val) }; }
+      catch (e) { return { ok: false, error: e.message }; }
+    }
+    if (field.nullable) {
+      return { ok: true, value: val.trim() === '' ? null : val };
+    }
+    return { ok: true, value: val };
+  }
+
+  function buildBrazePayload() {
+    var obj = {};
+    var allValid = true;
+    for (var i = 0; i < BRAZE_FIELDS.length; i++) {
+      var f = BRAZE_FIELDS[i];
+      var r = bfReadValue(f);
+      bfSetInvalid(f.key, !r.ok);
+      if (!r.ok) { allValid = false; obj[f.key] = null; }
+      else obj[f.key] = r.value;
+      if (f.key === 'title') {
+        obj.content = document.getElementById('bf-content').value;
+      }
+    }
+    return { obj: obj, valid: allValid };
+  }
+
+  function applyJsonFromForm(showStatus) {
+    var r = buildBrazePayload();
+    document.getElementById('braze-input').value = JSON.stringify(r.obj, null, 2);
+    if (showStatus !== false) {
+      if (r.valid) setBrazeStatus('동기화됨', 'ok');
+      else setBrazeStatus('필드 JSON 오류 — 빨간 테두리 확인', 'err');
+    }
+  }
+
+  function syncJsonFromForm() {
+    clearTimeout(brazeJsonSyncTimer);
+    brazeJsonSyncTimer = setTimeout(function() { applyJsonFromForm(true); }, 150);
+    updatePreview();
+  }
+
+  function findContentField(obj) {
+    if (obj == null || typeof obj === 'string') return null;
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) {
+        var f = findContentField(obj[i]);
+        if (f != null) return f;
+      }
+      return null;
+    }
+    if (typeof obj === 'object') {
+      if (typeof obj.content === 'string') return obj.content;
+      for (var k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, k)) {
+          var v = findContentField(obj[k]);
+          if (v != null) return v;
+        }
+      }
+    }
+    return null;
+  }
+
+  function populateFormFromObject(parsed) {
+    parsed = parsed || {};
+    for (var i = 0; i < BRAZE_FIELDS.length; i++) {
+      var f = BRAZE_FIELDS[i];
+      var el = bfElement(f.key);
+      if (!el) continue;
+      var v = parsed[f.key];
+      if (f.json) el.value = (v == null) ? '' : JSON.stringify(v, null, 2);
+      else el.value = (v == null) ? '' : String(v);
+      bfSetInvalid(f.key, false);
+    }
+    var contentEl = document.getElementById('bf-content');
+    var c = (typeof parsed.content === 'string') ? parsed.content : findContentField(parsed);
+    contentEl.value = (typeof c === 'string') ? c : '';
+  }
+
+  function parseBrazeJson() {
+    var raw = document.getElementById('braze-input').value.trim();
+    if (!raw) { setBrazeStatus('JSON을 입력하세요', 'err'); return; }
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (e) { setBrazeStatus('JSON 파싱 실패: ' + e.message, 'err'); return; }
+    populateFormFromObject(parsed);
+    applyJsonFromForm(false);
+    updatePreview();
+    setBrazeStatus('파싱 완료 · 폼/미리보기 동기화됨', 'ok');
+  }
+
+  function copyBrazeJson() {
+    var val = document.getElementById('braze-input').value;
+    if (!val) { setBrazeStatus('복사할 데이터가 없습니다', 'err'); return; }
+    var btn = document.getElementById('braze-copy-btn');
+    function done() {
+      btn.textContent = '복사됨 ✓';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = '복사'; btn.classList.remove('copied'); }, 1800);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(val).then(done).catch(function() {
+        document.getElementById('braze-input').select();
+        document.execCommand('copy');
+        done();
+      });
+    } else {
+      document.getElementById('braze-input').select();
+      document.execCommand('copy');
+      done();
+    }
+  }
+
+  function clearBraze() {
+    document.getElementById('braze-input').value = '';
+    setBrazeStatus('대기 중', null);
+  }
+
+  function clearAll() {
+    document.getElementById('braze-input').value = '';
+    populateFormFromObject({});
+    setBrazeStatus('대기 중', null);
+    updatePreview();
+  }
+
+  /* ── Counter helper ── */
+  function setCounter(id, bytes, limit) {
+    var el = document.getElementById(id);
+    el.textContent = bytes + ' / ' + limit + ' bytes';
+    el.classList.remove('warn', 'over');
+    if (bytes > limit) el.classList.add('over');
+    else if (bytes > limit * 0.8) el.classList.add('warn');
+  }
+
+  /* ── Preview rendering ── */
+  function statusTime() {
+    var d = new Date();
+    var h = d.getHours() % 12 || 12;
+    var m = d.getMinutes();
+    return h + ':' + (m < 10 ? '0' + m : m);
+  }
+  function bubbleTime() {
+    var d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    var ampm = h < 12 ? '오전' : '오후';
+    h = h % 12 || 12;
+    return ampm + ' ' + h + ':' + (m < 10 ? '0' + m : m);
+  }
+
+  function updatePreview() {
+    var title = document.getElementById('bf-title').value;
+    var content = document.getElementById('bf-content').value;
+
+    // status bar / bubble timestamps
+    var bt = bubbleTime();
+    document.getElementById('ph-status-time').textContent = statusTime();
+    document.getElementById('ph-bubble-time').textContent = bt;
+    document.getElementById('ph-msg-date-time').textContent = bt;
+
+    // title
+    var titleEl = document.getElementById('ph-title');
+    if (title.trim()) {
+      titleEl.textContent = title;
+      titleEl.classList.remove('empty');
+    } else {
+      titleEl.textContent = '제목을 입력하세요';
+      titleEl.classList.add('empty');
+    }
+
+    // content
+    var contentEl = document.getElementById('ph-content');
+    if (content.trim()) {
+      contentEl.textContent = content;
+      contentEl.classList.remove('empty');
+    } else {
+      contentEl.textContent = '본문을 입력하세요...';
+      contentEl.classList.add('empty');
+    }
+
+    // byte counts
+    var titleBytes = countBytes(title);
+    var contentBytes = countBytes(content);
+    var titleBytesEl = document.getElementById('ph-title-bytes');
+    var contentBytesEl = document.getElementById('ph-content-bytes');
+    titleBytesEl.textContent = titleBytes;
+    contentBytesEl.textContent = contentBytes;
+
+    // preview-info byte color (warn / over)
+    var titleWrap = document.getElementById('ph-title-bytes-wrap');
+    var contentWrap = document.getElementById('ph-content-bytes-wrap');
+    titleWrap.classList.remove('warn', 'over');
+    contentWrap.classList.remove('warn', 'over');
+    if (titleBytes > TITLE_LIMIT) titleWrap.classList.add('over');
+    else if (titleBytes > TITLE_LIMIT * 0.8) titleWrap.classList.add('warn');
+    if (contentBytes > LMS_LIMIT) contentWrap.classList.add('over');
+    else if (contentBytes > LMS_LIMIT * 0.9) contentWrap.classList.add('warn');
+
+    // form counter labels
+    setCounter('counter-title', titleBytes, TITLE_LIMIT);
+    setCounter('counter-content', contentBytes, LMS_LIMIT);
+
+    // message type chip
+    var typeEl = document.getElementById('ph-msg-type');
+    typeEl.classList.remove('lms', 'sms', 'over');
+    if (contentBytes === 0 && titleBytes === 0) {
+      typeEl.textContent = 'SMS';
+      typeEl.classList.add('sms');
+      setPreviewStatus('대기 중', null);
+    } else if (contentBytes > LMS_LIMIT) {
+      typeEl.textContent = 'OVER';
+      typeEl.classList.add('over');
+      setPreviewStatus('LMS 한도 초과 (' + contentBytes + ' / ' + LMS_LIMIT + ' bytes)', 'err');
+    } else if (contentBytes > SMS_LIMIT || titleBytes > 0) {
+      typeEl.textContent = 'LMS';
+      typeEl.classList.add('lms');
+      setPreviewStatus('LMS · title ' + titleBytes + 'B / content ' + contentBytes + 'B', 'ok');
+    } else {
+      typeEl.textContent = 'SMS';
+      typeEl.classList.add('sms');
+      setPreviewStatus('SMS · content ' + contentBytes + 'B', 'ok');
+    }
+  }
+
+  /* ── Sample ── */
+  function loadSample() {
+    var sample = {
+      campaignId: '{{campaign.${api_id}}}',
+      campaignName: '{{campaign.${name}}}',
+      templateId: null,
+      memberKey: '{{memberKey}}',
+      title: '[무신사] 멤버스데이 X 삼성카드',
+      content: '[무신사] 멤버스데이 X 삼성카드 \n\n무신사 멤버스데이 X 삼성카드\n4/27~5/3\n□ 무신사 삼성카드 최대 15만원\n   - 멤버스데이 기간 동안 무신사머니 포인트 최대 8만원 적립\n   - 무신사 삼성카드로 첫결제할 경우 3만1천원 구매시, 3만원 할인\n   - 무신사 삼성카드로 10만원 이상 결제 시 1만원 즉시 할인\n\n이벤트 확인하기 : https://musinsa.onelink.me/2uua/bqkm2iuw\n\n무료수신거부 080-857-9921',
+      statsId: null,
+      templateParameter: {},
+      smsParameter: {},
+      etcParameter: { ORDER_NO: 'asdfasdfas' }
+    };
+    document.getElementById('braze-input').value = JSON.stringify(sample, null, 2);
+    populateFormFromObject(sample);
+    applyJsonFromForm(false);
+    updatePreview();
+    setBrazeStatus('샘플 로드됨', 'ok');
+  }
+
+  /* ── Resizable splitters (form height + preview width) ── */
+  var DEFAULT_SIZES = { bf: 420, pv: 420 };
+  var MIN_HEIGHT = 80;
+  var MIN_PV_WIDTH = 360;
+  var MIN_BD_WIDTH = 240;
+  var SIZE_STORAGE_KEY = 'lms-previewer-sizes-v3';
+
+  function getCssPx(varName) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(varName);
+    return parseInt(v, 10) || 0;
+  }
+  function setCssPx(varName, px) {
+    document.documentElement.style.setProperty(varName, px + 'px');
+  }
+  function applySizes(sizes) {
+    setCssPx('--bf-height', sizes.bf);
+    setCssPx('--pv-width',  sizes.pv);
+  }
+  function loadSizes() {
+    try {
+      var raw = localStorage.getItem(SIZE_STORAGE_KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.bf === 'number' && typeof s.pv === 'number') {
+          return { bf: s.bf, pv: s.pv };
+        }
+      }
+    } catch (e) {}
+    return Object.assign({}, DEFAULT_SIZES);
+  }
+  function saveSizes() {
+    var s = { bf: getCssPx('--bf-height'), pv: getCssPx('--pv-width') };
+    try { localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function resetSizes() {
+    applySizes(DEFAULT_SIZES);
+    saveSizes();
+  }
+
+  function initSplitters() {
+    // Horizontal splitter — drag vertically to change form height
+    document.querySelectorAll('.splitter').forEach(function(sp) {
+      sp.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        try { sp.setPointerCapture(e.pointerId); } catch (err) {}
+        sp.classList.add('dragging');
+        document.body.classList.add('resizing-row');
+
+        var startY = e.clientY;
+        var startBF = getCssPx('--bf-height');
+
+        function onMove(ev) {
+          var delta = ev.clientY - startY;
+          var newBF = startBF - delta;
+          if (newBF < MIN_HEIGHT) return;
+          var topbarH = 54, splitterH = 6;
+          var maxBF = window.innerHeight - topbarH - splitterH - MIN_HEIGHT;
+          if (newBF > maxBF) return;
+          setCssPx('--bf-height', newBF);
+        }
+        function onUp() {
+          sp.classList.remove('dragging');
+          document.body.classList.remove('resizing-row');
+          sp.removeEventListener('pointermove', onMove);
+          sp.removeEventListener('pointerup', onUp);
+          sp.removeEventListener('pointercancel', onUp);
+          saveSizes();
+        }
+        sp.addEventListener('pointermove', onMove);
+        sp.addEventListener('pointerup', onUp);
+        sp.addEventListener('pointercancel', onUp);
+      });
+      sp.addEventListener('dblclick', function() { resetSizes(); });
+    });
+
+    // Vertical splitter — drag horizontally to change preview width
+    document.querySelectorAll('.splitter-v').forEach(function(sp) {
+      sp.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        try { sp.setPointerCapture(e.pointerId); } catch (err) {}
+        sp.classList.add('dragging');
+        document.body.classList.add('resizing-col');
+
+        var startX = e.clientX;
+        var startPV = getCssPx('--pv-width');
+
+        function onMove(ev) {
+          var delta = ev.clientX - startX;
+          // drag right → BD grows, preview shrinks
+          var newPV = startPV - delta;
+          if (newPV < MIN_PV_WIDTH) return;
+          var maxPV = window.innerWidth - MIN_BD_WIDTH;
+          if (newPV > maxPV) return;
+          setCssPx('--pv-width', newPV);
+        }
+        function onUp() {
+          sp.classList.remove('dragging');
+          document.body.classList.remove('resizing-col');
+          sp.removeEventListener('pointermove', onMove);
+          sp.removeEventListener('pointerup', onUp);
+          sp.removeEventListener('pointercancel', onUp);
+          saveSizes();
+        }
+        sp.addEventListener('pointermove', onMove);
+        sp.addEventListener('pointerup', onUp);
+        sp.addEventListener('pointercancel', onUp);
+      });
+      sp.addEventListener('dblclick', function() { resetSizes(); });
+    });
+  }
+
+  /* ── Init ── */
+  window.addEventListener('DOMContentLoaded', function() {
+    applySizes(loadSizes());
+    initSplitters();
+    updatePreview();
+  });
+</script>
+</body>
+</html>

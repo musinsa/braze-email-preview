@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Push Previewer</title>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #ffffff;
+    --bg2:       #f5f5f7;
+    --bg3:       #ebebef;
+    --border:    rgba(0,0,0,0.08);
+    --border2:   rgba(0,0,0,0.16);
+    --text:      #1a1a1e;
+    --text2:     #6a6a72;
+    --text3:     #a0a0aa;
+    --accent:    #6353e8;
+    --accent-bg: rgba(99,83,232,0.10);
+    --accent-bd: rgba(99,83,232,0.40);
+    --success:   #1d8a55;
+    --warn:      #d18440;
+    --danger:    #c93a3a;
+    --mono: 'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+    --sans: 'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif;
+
+    --bf-height: 380px;
+    --pv-width:  500px;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 54px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    font-size: 14px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.3px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .logo-icon {
+    width: 26px; height: 26px;
+    background: linear-gradient(135deg, #c93a3a, #e25b5b);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .live-badge {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text2);
+    font-family: var(--mono);
+    padding: 3px 10px;
+    border: 1px solid var(--border); border-radius: 20px;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite; flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .btn {
+    font-size: 12px; font-family: var(--sans); font-weight: 500;
+    padding: 5px 13px; border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent; color: var(--text2);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+    text-decoration: none;
+  }
+  .btn:hover { background: var(--bg3); color: var(--text); }
+  .btn.danger:hover { color: var(--danger); border-color: rgba(201,58,58,0.4); }
+
+  /* ── Splitters ── */
+  .splitter {
+    flex-shrink: 0; height: 6px;
+    background: var(--border);
+    cursor: row-resize;
+    transition: background 0.15s;
+    position: relative; z-index: 5;
+  }
+  .splitter::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px; height: 2px;
+    background: var(--text3);
+    border-radius: 1px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .splitter:hover { background: var(--accent-bg); }
+  .splitter:hover::after { opacity: 0.7; background: var(--accent); }
+  .splitter.dragging { background: var(--accent-bg); }
+  .splitter.dragging::after { opacity: 1; background: var(--accent); }
+
+  .splitter-v {
+    flex-shrink: 0; width: 6px;
+    background: var(--border);
+    cursor: col-resize;
+    transition: background 0.15s;
+    position: relative; z-index: 5;
+  }
+  .splitter-v::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px; height: 36px;
+    background: var(--text3);
+    border-radius: 1px;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .splitter-v:hover { background: var(--accent-bg); }
+  .splitter-v:hover::after { opacity: 0.7; background: var(--accent); }
+  .splitter-v.dragging { background: var(--accent-bg); }
+  .splitter-v.dragging::after { opacity: 1; background: var(--accent); }
+
+  body.resizing-row { cursor: row-resize !important; user-select: none; }
+  body.resizing-col { cursor: col-resize !important; user-select: none; }
+
+  /* ── Section header ── */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; height: 40px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .section-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10px; color: var(--text2);
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .section-status {
+    font-size: 11px; font-family: var(--mono); color: var(--text3);
+    transition: color 0.2s;
+  }
+  .section-status.ok { color: var(--success); }
+  .section-status.err { color: var(--danger); }
+  .section-hint { font-size: 11px; color: var(--text3); }
+
+  /* ── Top row ── */
+  .top-row { flex: 1; display: flex; min-height: 0; }
+
+  /* ── Braze Data ── */
+  .braze-section {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+  }
+  .braze-body { flex: 1; min-height: 0; position: relative; }
+  #braze-input {
+    width: 100%; height: 100%; resize: none; border: none; outline: none;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    padding: 12px 240px 12px 18px;
+    background: var(--bg); color: var(--text2);
+    overflow-y: auto;
+  }
+  #braze-input::placeholder { color: var(--text3); }
+  .braze-actions {
+    position: absolute; right: 12px; top: 10px;
+    display: flex; gap: 6px;
+  }
+  .braze-actions .copy-btn { position: static; }
+  .copy-btn {
+    font-size: 12px; font-family: var(--sans); font-weight: 500;
+    padding: 5px 16px; border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: var(--bg2); color: var(--text);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .copy-btn:hover { background: var(--bg3); }
+  .copy-btn.copied { color: var(--success); border-color: rgba(29,138,85,0.45); }
+
+  /* ── Braze Fields ── */
+  .braze-fields-section {
+    flex-shrink: 0; height: var(--bf-height);
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+  }
+  .braze-fields-body {
+    flex: 1; min-height: 0;
+    padding: 14px 16px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    align-content: start;
+  }
+  .bf-row { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .bf-row.full { grid-column: 1 / -1; }
+  .bf-row label {
+    font-size: 10px; color: var(--text2);
+    font-family: var(--mono); letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .bf-row label .bf-type {
+    font-size: 9px; color: var(--text3);
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .bf-row label .bf-counter {
+    margin-left: auto;
+    font-size: 10px; color: var(--text3);
+    font-family: var(--mono);
+  }
+  .bf-row label .bf-counter.warn { color: var(--warn); }
+  .bf-row label .bf-counter.over { color: var(--danger); font-weight: 600; }
+  .bf-row input,
+  .bf-row textarea {
+    font-family: var(--mono); font-size: 12.5px;
+    padding: 7px 10px; width: 100%;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border2);
+    border-radius: 5px; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .bf-row textarea {
+    resize: vertical; min-height: 80px; max-height: 240px;
+    line-height: 1.6;
+  }
+  /* 푸시의 핵심 — title, body 강조 */
+  #bf-title {
+    font-size: 13.5px;
+    padding: 9px 12px;
+  }
+  #bf-body {
+    min-height: 180px; max-height: 360px;
+    font-size: 13px;
+    line-height: 1.65;
+    padding: 10px 12px;
+  }
+  #bf-row-title > label, #bf-row-body > label {
+    color: var(--text); font-weight: 600;
+  }
+  .bf-row input::placeholder,
+  .bf-row textarea::placeholder { color: var(--text3); }
+  .bf-row input:focus,
+  .bf-row textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .bf-row.invalid input,
+  .bf-row.invalid textarea {
+    border-color: var(--danger);
+    background: rgba(201,58,58,0.05);
+  }
+  .bf-row.invalid label { color: var(--danger); }
+
+  /* ── Preview ── */
+  .preview-section {
+    width: var(--pv-width); flex-shrink: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+  }
+  .preview-body {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 16px 16px 22px;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,58,58,0.06), transparent 70%),
+      linear-gradient(180deg, #ecedf2 0%, #dcdde3 100%);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+  }
+
+  .preview-info {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 22px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .preview-info .ph-msg-type {
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-size: 10.5px;
+    background: rgba(201,58,58,0.13);
+    color: var(--danger);
+  }
+  .preview-info .ph-counts { display: flex; gap: 12px; }
+  .preview-info .ph-counts .warn { color: var(--warn); }
+
+  /* iPhone-style frame (20% larger) */
+  .phone-frame {
+    width: 384px;
+    background: #1a1a1e;
+    border-radius: 55px;
+    padding: 13px;
+    box-shadow:
+      0 30px 60px rgba(20,20,30,0.22),
+      0 8px 18px rgba(20,20,30,0.10),
+      inset 0 0 0 2px #2c2c34;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .phone-screen {
+    border-radius: 43px;
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+    min-height: 593px;
+    /* iOS Lock Screen-style gradient — dim purple/blue */
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(99,83,232,0.30), transparent 50%),
+      radial-gradient(ellipse at 80% 60%, rgba(201,58,58,0.20), transparent 60%),
+      linear-gradient(180deg, #1a1f2e 0%, #2a2438 50%, #1a1820 100%);
+    color: #fff;
+  }
+  .phone-notch {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 142px; height: 31px;
+    background: #1a1a1e;
+    border-radius: 0 0 22px 22px;
+    z-index: 4;
+  }
+
+  .status-bar {
+    height: 55px;
+    padding: 0 34px 0 31px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: #fff;
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+  .status-time {
+    font-weight: 700; font-size: 17px;
+    letter-spacing: -0.2px;
+    font-family: var(--sans);
+  }
+  .status-icons {
+    display: flex; gap: 5px; align-items: center;
+    color: #fff;
+  }
+  .status-icons svg { display: block; }
+
+  /* Lock screen content */
+  .lock-content {
+    flex: 1;
+    padding: 4px 16px 0;
+    display: flex; flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+  }
+  .lock-clock {
+    font-size: 58px; font-weight: 200;
+    letter-spacing: -2.5px;
+    line-height: 1;
+    color: #fff;
+    margin-top: 4px;
+    font-family: var(--sans);
+  }
+  .lock-date {
+    font-size: 16px; font-weight: 600;
+    margin-top: 3px;
+    color: #fff;
+    opacity: 0.92;
+    letter-spacing: -0.2px;
+  }
+
+  .lock-notification {
+    width: 100%;
+    margin-top: 22px;
+    background: rgba(245,245,250,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: #000;
+    border-radius: 17px;
+    padding: 13px 16px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.30);
+  }
+  .ln-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 5px;
+  }
+  .ln-app-icon {
+    width: 34px; height: 34px;
+    background: #000;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .ln-app-icon svg { width: 100%; height: 100%; display: block; }
+  .ln-app-name {
+    font-weight: 600; font-size: 14px;
+    color: rgba(0,0,0,0.55);
+    letter-spacing: -0.1px;
+    text-transform: uppercase;
+  }
+  .ln-time {
+    margin-left: auto;
+    font-size: 14px;
+    color: rgba(0,0,0,0.45);
+    font-weight: 400;
+  }
+  .ln-body-row {
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .ln-text { flex: 1; min-width: 0; }
+  .ln-title {
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+    margin-bottom: 3px;
+    color: #000;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ln-title.empty { color: rgba(0,0,0,0.35); font-weight: 400; font-style: italic; }
+  .ln-body {
+    font-size: 15px;
+    line-height: 1.4;
+    color: rgba(0,0,0,0.78);
+    word-break: break-word;
+    white-space: pre-wrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ln-body.empty { color: rgba(0,0,0,0.35); font-style: italic; }
+  .ln-image {
+    width: 67px; height: 67px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #ddd;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .ln-image.hidden { display: none; }
+
+  .lock-link {
+    margin-top: auto;
+    margin-bottom: 14px;
+    padding: 7px 14px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: rgba(255,255,255,0.78);
+    letter-spacing: 0.02em;
+    max-width: 92%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    display: inline-block;
+  }
+  .lock-link:hover {
+    background: rgba(255,255,255,0.20);
+    border-color: rgba(255,255,255,0.35);
+    color: #fff;
+  }
+  .lock-link.hidden { display: none; }
+  .lock-link::before {
+    content: '↗ ';
+    color: rgba(255,255,255,0.55);
+  }
+
+  .home-indicator {
+    height: 6px; width: 161px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 3px;
+    margin: 8px auto 10px;
+    flex-shrink: 0;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </div>
+      Push Previewer
+    </div>
+    <div class="live-badge"><span class="live-dot"></span>실시간 미리보기</div>
+  </div>
+  <div class="topbar-right">
+    <a class="btn" href="index.html">← Index</a>
+    <button class="btn" onclick="loadSample()">샘플</button>
+    <button class="btn danger" onclick="clearAll()">초기화</button>
+  </div>
+</div>
+
+<!-- Top row: Braze Data + Preview side-by-side -->
+<div class="top-row">
+
+<!-- Braze Data -->
+<div class="braze-section">
+  <div class="section-header">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      Braze Data
+    </div>
+    <span class="section-status" id="braze-status">대기 중</span>
+  </div>
+  <div class="braze-body">
+    <textarea id="braze-input" spellcheck="false"
+      placeholder='Braze 푸시 JSON을 붙여넣고 [JSON 파싱] 클릭. 폼 수정 시 이 영역과 미리보기가 자동 동기화됩니다.'></textarea>
+    <div class="braze-actions">
+      <button class="copy-btn" onclick="parseBrazeJson()">JSON 파싱</button>
+      <button class="copy-btn" id="braze-copy-btn" onclick="copyBrazeJson()">복사</button>
+      <button class="copy-btn" onclick="clearBraze()">지우기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Splitter (vertical) -->
+<div class="splitter-v" data-splitter="preview-width" title="좌우 드래그로 너비 조정 · 더블클릭으로 초기화"></div>
+
+<!-- Push Preview -->
+<div class="preview-section">
+  <div class="section-header">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      Push 미리보기
+    </div>
+    <span class="section-status" id="preview-status">대기 중</span>
+  </div>
+  <div class="preview-body">
+    <div class="preview-info">
+      <span class="ph-msg-type">PUSH</span>
+      <div class="ph-counts">
+        <span id="ph-title-count-wrap">title <span id="ph-title-count">0</span>자</span>
+        <span id="ph-body-count-wrap">body <span id="ph-body-count">0</span>자</span>
+      </div>
+    </div>
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="status-bar">
+          <div class="status-time" id="ph-status-time">9:41</div>
+          <div class="status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true">
+              <rect x="0" y="7" width="3" height="4" rx="0.6"/>
+              <rect x="4.5" y="5" width="3" height="6" rx="0.6"/>
+              <rect x="9" y="3" width="3" height="8" rx="0.6"/>
+              <rect x="13.5" y="0" width="3" height="11" rx="0.6"/>
+            </svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor" aria-hidden="true">
+              <path d="M7.5 8.5a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zM3.7 5.7a5.4 5.4 0 0 1 7.6 0l-1.3 1.3a3.6 3.6 0 0 0-5 0L3.7 5.7zM0.5 2.5a9.7 9.7 0 0 1 14 0l-1.3 1.3a7.9 7.9 0 0 0-11.4 0L0.5 2.5z"/>
+            </svg>
+            <svg width="26" height="11" viewBox="0 0 26 11" aria-hidden="true">
+              <rect x="0.5" y="0.5" width="22" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+              <rect x="2" y="2" width="19" height="7" rx="1.4" fill="currentColor"/>
+              <rect x="23.2" y="3.5" width="1.6" height="4" rx="0.7" fill="currentColor" opacity="0.6"/>
+            </svg>
+          </div>
+        </div>
+        <div class="lock-content">
+          <div class="lock-clock" id="ph-clock">9:41</div>
+          <div class="lock-date" id="ph-date">월요일 1월 1일</div>
+
+          <div class="lock-notification">
+            <div class="ln-header">
+              <div class="ln-app-icon">
+                <svg viewBox="0 0 60 60" aria-label="MUSINSA">
+                  <text x="30" y="38" font-family="-apple-system, system-ui, 'Pretendard', 'Helvetica Neue', sans-serif"
+                        font-size="14" font-weight="900" text-anchor="middle"
+                        fill="#fff" letter-spacing="-0.6"
+                        textLength="50" lengthAdjust="spacingAndGlyphs">MUSINSA</text>
+                </svg>
+              </div>
+              <div class="ln-app-name">MUSINSA</div>
+              <div class="ln-time" id="ph-ln-time">지금</div>
+            </div>
+            <div class="ln-body-row">
+              <div class="ln-text">
+                <div class="ln-title empty" id="ph-title">푸시 제목을 입력하세요</div>
+                <div class="ln-body empty" id="ph-body">푸시 본문을 입력하세요...</div>
+              </div>
+              <img class="ln-image hidden" id="ph-image" alt="">
+            </div>
+          </div>
+
+          <a class="lock-link hidden" id="ph-link" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end top-row -->
+
+<!-- Splitter -->
+<div class="splitter" data-splitter="form" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
+
+<!-- Braze Fields -->
+<div class="braze-fields-section">
+  <div class="section-header">
+    <div class="section-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="16" rx="2"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Braze Fields
+    </div>
+    <span class="section-hint">필드 수정 시 위쪽 Braze Data 및 미리보기가 자동 동기화됩니다 · Push는 title/body/imageUrl/linkUrl 필드</span>
+  </div>
+  <div class="braze-fields-body">
+    <!-- 메시지 본문 (Push의 핵심) -->
+    <div class="bf-row full" id="bf-row-title">
+      <label>title <span class="bf-counter" id="counter-title">0자</span></label>
+      <input type="text" id="bf-title" oninput="syncJsonFromForm()" spellcheck="false" placeholder="푸시 제목 (간결하게, 1~2줄)">
+    </div>
+    <div class="bf-row full" id="bf-row-body">
+      <label>body <span class="bf-counter" id="counter-body">0자</span></label>
+      <textarea id="bf-body" oninput="syncJsonFromForm()" spellcheck="false" placeholder="푸시 본문 (잠금화면에서 약 4줄까지 표시)"></textarea>
+    </div>
+
+    <!-- Rich Push 자원 -->
+    <div class="bf-row full" id="bf-row-imageUrl">
+      <label>imageUrl <span class="bf-type">optional</span></label>
+      <input type="text" id="bf-imageUrl" oninput="syncJsonFromForm()" spellcheck="false" placeholder="https://... (Rich Push 이미지, 비워두면 일반 알림)">
+    </div>
+    <div class="bf-row full" id="bf-row-linkUrl">
+      <label>linkUrl <span class="bf-type">deeplink</span></label>
+      <input type="text" id="bf-linkUrl" oninput="syncJsonFromForm()" spellcheck="false" placeholder="https://... 또는 app://...">
+    </div>
+
+    <!-- 식별자 -->
+    <div class="bf-row" id="bf-row-campaignId">
+      <label>campaignId</label>
+      <input type="text" id="bf-campaignId" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row" id="bf-row-campaignName">
+      <label>campaignName</label>
+      <input type="text" id="bf-campaignName" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+    <div class="bf-row full" id="bf-row-memberHashId">
+      <label>memberHashId</label>
+      <input type="text" id="bf-memberHashId" oninput="syncJsonFromForm()" spellcheck="false">
+    </div>
+
+    <!-- 파라미터 -->
+    <div class="bf-row full" id="bf-row-templateParameter">
+      <label>templateParameter <span class="bf-type">json</span></label>
+      <textarea id="bf-templateParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder="{}"></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Field config (Push payload) ── */
+  // Order: campaignId, campaignName, memberHashId, title, body, imageUrl, linkUrl, templateParameter
+  var BRAZE_FIELDS = [
+    { key: 'campaignId' },
+    { key: 'campaignName' },
+    { key: 'memberHashId' },
+    { key: 'title' },
+    { key: 'body' },
+    { key: 'imageUrl' },
+    { key: 'linkUrl' },
+    { key: 'templateParameter', json: true }
+  ];
+
+  var brazeJsonSyncTimer;
+
+  /* ── Status helpers ── */
+  function setBrazeStatus(text, kind) {
+    var el = document.getElementById('braze-status');
+    el.textContent = text;
+    el.classList.remove('ok', 'err');
+    if (kind) el.classList.add(kind);
+  }
+  function setPreviewStatus(text, kind) {
+    var el = document.getElementById('preview-status');
+    el.textContent = text;
+    el.classList.remove('ok', 'err');
+    if (kind) el.classList.add(kind);
+  }
+
+  /* ── Form ↔ JSON helpers ── */
+  function bfElement(key) { return document.getElementById('bf-' + key); }
+  function bfSetInvalid(key, invalid) {
+    var row = document.getElementById('bf-row-' + key);
+    if (row) row.classList.toggle('invalid', !!invalid);
+  }
+  function bfReadValue(field) {
+    var el = bfElement(field.key);
+    if (!el) return { ok: true, value: null };
+    var val = el.value;
+    if (field.json) {
+      if (!val.trim()) return { ok: true, value: {} };
+      try { return { ok: true, value: JSON.parse(val) }; }
+      catch (e) { return { ok: false, error: e.message }; }
+    }
+    return { ok: true, value: val };
+  }
+
+  function buildBrazePayload() {
+    var obj = {};
+    var allValid = true;
+    for (var i = 0; i < BRAZE_FIELDS.length; i++) {
+      var f = BRAZE_FIELDS[i];
+      var r = bfReadValue(f);
+      bfSetInvalid(f.key, !r.ok);
+      if (!r.ok) { allValid = false; obj[f.key] = null; }
+      else obj[f.key] = r.value;
+    }
+    return { obj: obj, valid: allValid };
+  }
+
+  function applyJsonFromForm(showStatus) {
+    var r = buildBrazePayload();
+    document.getElementById('braze-input').value = JSON.stringify(r.obj, null, 2);
+    if (showStatus !== false) {
+      if (r.valid) setBrazeStatus('동기화됨', 'ok');
+      else setBrazeStatus('필드 JSON 오류 — 빨간 테두리 확인', 'err');
+    }
+  }
+
+  function syncJsonFromForm() {
+    clearTimeout(brazeJsonSyncTimer);
+    brazeJsonSyncTimer = setTimeout(function() { applyJsonFromForm(true); }, 150);
+    updatePreview();
+  }
+
+  function populateFormFromObject(parsed) {
+    parsed = parsed || {};
+    for (var i = 0; i < BRAZE_FIELDS.length; i++) {
+      var f = BRAZE_FIELDS[i];
+      var el = bfElement(f.key);
+      if (!el) continue;
+      var v = parsed[f.key];
+      if (f.json) el.value = (v == null) ? '' : JSON.stringify(v, null, 2);
+      else el.value = (v == null) ? '' : String(v);
+      bfSetInvalid(f.key, false);
+    }
+  }
+
+  function parseBrazeJson() {
+    var raw = document.getElementById('braze-input').value.trim();
+    if (!raw) { setBrazeStatus('JSON을 입력하세요', 'err'); return; }
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (e) { setBrazeStatus('JSON 파싱 실패: ' + e.message, 'err'); return; }
+    populateFormFromObject(parsed);
+    applyJsonFromForm(false);
+    updatePreview();
+    setBrazeStatus('파싱 완료 · 폼/미리보기 동기화됨', 'ok');
+  }
+
+  function copyBrazeJson() {
+    var val = document.getElementById('braze-input').value;
+    if (!val) { setBrazeStatus('복사할 데이터가 없습니다', 'err'); return; }
+    var btn = document.getElementById('braze-copy-btn');
+    function done() {
+      btn.textContent = '복사됨 ✓';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = '복사'; btn.classList.remove('copied'); }, 1800);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(val).then(done).catch(function() {
+        document.getElementById('braze-input').select();
+        document.execCommand('copy');
+        done();
+      });
+    } else {
+      document.getElementById('braze-input').select();
+      document.execCommand('copy');
+      done();
+    }
+  }
+
+  function clearBraze() {
+    document.getElementById('braze-input').value = '';
+    setBrazeStatus('대기 중', null);
+  }
+
+  function clearAll() {
+    document.getElementById('braze-input').value = '';
+    populateFormFromObject({});
+    setBrazeStatus('대기 중', null);
+    updatePreview();
+  }
+
+  /* ── Counter helper ── */
+  function setCounter(id, count, soft) {
+    var el = document.getElementById(id);
+    el.textContent = count + '자';
+    el.classList.remove('warn', 'over');
+    if (count > soft) el.classList.add('warn');
+  }
+
+  /* ── Time helpers ── */
+  function statusTime() {
+    var d = new Date();
+    var h = d.getHours() % 12 || 12;
+    var m = d.getMinutes();
+    return h + ':' + (m < 10 ? '0' + m : m);
+  }
+  function lockClock() {
+    var d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return h + ':' + (m < 10 ? '0' + m : m);
+  }
+  var WEEKDAYS = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+  function lockDate() {
+    var d = new Date();
+    return WEEKDAYS[d.getDay()] + ' ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+  }
+
+  /* ── Preview ── */
+  // Soft guidelines (iOS lock screen): title ~50자 / body ~178자 (잘림 시작점)
+  var TITLE_SOFT = 50;
+  var BODY_SOFT = 178;
+
+  function updatePreview() {
+    var title    = document.getElementById('bf-title').value;
+    var body     = document.getElementById('bf-body').value;
+    var imageUrl = document.getElementById('bf-imageUrl').value.trim();
+    var linkUrl  = document.getElementById('bf-linkUrl').value.trim();
+
+    // status bar / clock / date
+    document.getElementById('ph-status-time').textContent = statusTime();
+    document.getElementById('ph-clock').textContent = lockClock();
+    document.getElementById('ph-date').textContent = lockDate();
+    document.getElementById('ph-ln-time').textContent = '지금';
+
+    // title
+    var titleEl = document.getElementById('ph-title');
+    if (title.trim()) {
+      titleEl.textContent = title;
+      titleEl.classList.remove('empty');
+    } else {
+      titleEl.textContent = '푸시 제목을 입력하세요';
+      titleEl.classList.add('empty');
+    }
+
+    // body
+    var bodyEl = document.getElementById('ph-body');
+    if (body.trim()) {
+      bodyEl.textContent = body;
+      bodyEl.classList.remove('empty');
+    } else {
+      bodyEl.textContent = '푸시 본문을 입력하세요...';
+      bodyEl.classList.add('empty');
+    }
+
+    // image
+    var img = document.getElementById('ph-image');
+    if (imageUrl) {
+      img.onerror = function() { img.classList.add('hidden'); };
+      img.onload  = function() { img.classList.remove('hidden'); };
+      img.src = imageUrl;
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+    }
+
+    // link (clickable, opens in new tab)
+    var linkEl = document.getElementById('ph-link');
+    if (linkUrl) {
+      linkEl.textContent = linkUrl;
+      linkEl.setAttribute('href', linkUrl);
+      linkEl.setAttribute('title', '새 탭에서 열기: ' + linkUrl);
+      linkEl.classList.remove('hidden');
+    } else {
+      linkEl.textContent = '';
+      linkEl.removeAttribute('href');
+      linkEl.removeAttribute('title');
+      linkEl.classList.add('hidden');
+    }
+
+    // counts
+    var titleLen = title.length;
+    var bodyLen = body.length;
+    document.getElementById('ph-title-count').textContent = titleLen;
+    document.getElementById('ph-body-count').textContent  = bodyLen;
+    var titleWrap = document.getElementById('ph-title-count-wrap');
+    var bodyWrap  = document.getElementById('ph-body-count-wrap');
+    titleWrap.classList.toggle('warn', titleLen > TITLE_SOFT);
+    bodyWrap.classList.toggle('warn',  bodyLen  > BODY_SOFT);
+
+    // form labels
+    setCounter('counter-title', titleLen, TITLE_SOFT);
+    setCounter('counter-body',  bodyLen,  BODY_SOFT);
+
+    // status text
+    if (titleLen === 0 && bodyLen === 0) {
+      setPreviewStatus('대기 중', null);
+    } else {
+      var msg = 'title ' + titleLen + '자 / body ' + bodyLen + '자';
+      if (titleLen > TITLE_SOFT || bodyLen > BODY_SOFT) {
+        setPreviewStatus(msg + ' · 잠금화면 잘릴 수 있음', null);
+      } else {
+        setPreviewStatus(msg, 'ok');
+      }
+    }
+  }
+
+  /* ── Sample ── */
+  function loadSample() {
+    var sample = {
+      campaignId: '{{campaign.${api_id}}}',
+      campaignName: '{{campaign.${name}}}',
+      memberHashId: '{{${user_id}}}',
+      title: '올 여름도 쿨하게! 쿨탠다드 오픈 🎉',
+      body: '(광고) Always Cool,  올 여름도 시원하게 🧊\n최대 60% 할인 및 990딜 이벤트도 놓치지 마세요\n수신거부 : 메인 상단 알림 > 설정 > 알림 OFF',
+      imageUrl: '',
+      linkUrl: 'https://www.musinsa.com/campaign/2026cooltandard/0?utm_source=app_push&utm_medium=cr&utm_content=mf&utm_campaign=APSMTDD151&source=APSMTDD151',
+      templateParameter: {}
+    };
+    document.getElementById('braze-input').value = JSON.stringify(sample, null, 2);
+    populateFormFromObject(sample);
+    applyJsonFromForm(false);
+    updatePreview();
+    setBrazeStatus('샘플 로드됨', 'ok');
+  }
+
+  /* ── Resizable splitters ── */
+  var DEFAULT_SIZES = { bf: 380, pv: 500 };
+  var MIN_HEIGHT = 80;
+  var MIN_PV_WIDTH = 440;     // 384px phone + 28px padding 양옆 + 여유
+  var MIN_BD_WIDTH = 240;
+  var SIZE_STORAGE_KEY = 'push-previewer-sizes-v2';
+
+  function getCssPx(varName) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(varName);
+    return parseInt(v, 10) || 0;
+  }
+  function setCssPx(varName, px) {
+    document.documentElement.style.setProperty(varName, px + 'px');
+  }
+  function applySizes(sizes) {
+    setCssPx('--bf-height', sizes.bf);
+    setCssPx('--pv-width',  sizes.pv);
+  }
+  function loadSizes() {
+    try {
+      var raw = localStorage.getItem(SIZE_STORAGE_KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.bf === 'number' && typeof s.pv === 'number') {
+          return { bf: s.bf, pv: s.pv };
+        }
+      }
+    } catch (e) {}
+    return Object.assign({}, DEFAULT_SIZES);
+  }
+  function saveSizes() {
+    var s = { bf: getCssPx('--bf-height'), pv: getCssPx('--pv-width') };
+    try { localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function resetSizes() {
+    applySizes(DEFAULT_SIZES);
+    saveSizes();
+  }
+
+  function initSplitters() {
+    document.querySelectorAll('.splitter').forEach(function(sp) {
+      sp.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        try { sp.setPointerCapture(e.pointerId); } catch (err) {}
+        sp.classList.add('dragging');
+        document.body.classList.add('resizing-row');
+
+        var startY = e.clientY;
+        var startBF = getCssPx('--bf-height');
+
+        function onMove(ev) {
+          var delta = ev.clientY - startY;
+          var newBF = startBF - delta;
+          if (newBF < MIN_HEIGHT) return;
+          var topbarH = 54, splitterH = 6;
+          var maxBF = window.innerHeight - topbarH - splitterH - MIN_HEIGHT;
+          if (newBF > maxBF) return;
+          setCssPx('--bf-height', newBF);
+        }
+        function onUp() {
+          sp.classList.remove('dragging');
+          document.body.classList.remove('resizing-row');
+          sp.removeEventListener('pointermove', onMove);
+          sp.removeEventListener('pointerup', onUp);
+          sp.removeEventListener('pointercancel', onUp);
+          saveSizes();
+        }
+        sp.addEventListener('pointermove', onMove);
+        sp.addEventListener('pointerup', onUp);
+        sp.addEventListener('pointercancel', onUp);
+      });
+      sp.addEventListener('dblclick', function() { resetSizes(); });
+    });
+
+    document.querySelectorAll('.splitter-v').forEach(function(sp) {
+      sp.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        try { sp.setPointerCapture(e.pointerId); } catch (err) {}
+        sp.classList.add('dragging');
+        document.body.classList.add('resizing-col');
+
+        var startX = e.clientX;
+        var startPV = getCssPx('--pv-width');
+
+        function onMove(ev) {
+          var delta = ev.clientX - startX;
+          var newPV = startPV - delta;
+          if (newPV < MIN_PV_WIDTH) return;
+          var maxPV = window.innerWidth - MIN_BD_WIDTH;
+          if (newPV > maxPV) return;
+          setCssPx('--pv-width', newPV);
+        }
+        function onUp() {
+          sp.classList.remove('dragging');
+          document.body.classList.remove('resizing-col');
+          sp.removeEventListener('pointermove', onMove);
+          sp.removeEventListener('pointerup', onUp);
+          sp.removeEventListener('pointercancel', onUp);
+          saveSizes();
+        }
+        sp.addEventListener('pointermove', onMove);
+        sp.addEventListener('pointerup', onUp);
+        sp.addEventListener('pointercancel', onUp);
+      });
+      sp.addEventListener('dblclick', function() { resetSizes(); });
+    });
+  }
+
+  /* ── Init ── */
+  window.addEventListener('DOMContentLoaded', function() {
+    applySizes(loadSizes());
+    initSplitters();
+    updatePreview();
+  });
+</script>
+</body>
+</html>

@@ -372,6 +372,8 @@
     <div class="live-badge"><span class="live-dot"></span>실시간 미리보기</div>
   </div>
   <div class="topbar-right">
+    <a class="btn" href="index.html" style="text-decoration:none">← Index</a>
+    <div class="divider"></div>
     <button class="btn btn-icon" id="btn-undo" onclick="doUndo()" title="실행 취소 (Ctrl+Z)">↩</button>
     <button class="btn btn-icon" id="btn-redo" onclick="doRedo()" title="다시 실행 (Ctrl+Y)">↪</button>
     <div class="divider"></div>
@@ -389,6 +391,30 @@
     <button class="nudge-close" onclick="hideNudge()">✕</button>
   </div>
 </div>
+
+<!-- Braze Data -->
+<div class="braze-section">
+  <div class="braze-header">
+    <div class="braze-label">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Braze Data
+    </div>
+    <span class="braze-status" id="braze-status">대기 중</span>
+  </div>
+  <div class="braze-body">
+    <textarea id="braze-input" spellcheck="false"
+      placeholder='Braze JSON을 붙여넣고 [JSON 파싱] 클릭 → 아래 폼/HTML 편집기에 자동 채움. 폼/편집기 수정 시 이 영역도 자동 동기화됩니다.'></textarea>
+    <div class="braze-actions">
+      <button class="copy-btn" id="braze-parse-btn" onclick="parseBrazeJson()">JSON 파싱</button>
+      <button class="copy-btn" id="braze-copy-btn" onclick="copyBrazeJson()">복사</button>
+      <button class="copy-btn" onclick="clearBraze()">지우기</button>
+    </div>
+  </div>
+</div>
+
+<div class="splitter" data-splitter="bd" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
 
 <!-- Split -->
 <div class="main">
@@ -437,7 +463,7 @@
       </svg>
       Braze Fields
     </div>
-    <span class="braze-fields-hint">필드 입력 시 아래 Braze Data가 자동 동기화됩니다 · content는 HTML 편집기와 연동</span>
+    <span class="braze-fields-hint">필드 입력 시 위 Braze Data가 자동 동기화됩니다 · content는 HTML 편집기와 연동</span>
   </div>
   <div class="braze-fields-body">
     <div class="bf-row" id="bf-row-campaignId">
@@ -483,30 +509,6 @@
     <div class="bf-row full" id="bf-row-etcParameter">
       <label>etcParameter <span class="bf-type">json</span></label>
       <textarea id="bf-etcParameter" oninput="syncJsonFromForm()" spellcheck="false" placeholder='{"CALLER": "..."}'></textarea>
-    </div>
-  </div>
-</div>
-
-<div class="splitter" data-splitter="bd" title="드래그로 높이 조정 · 더블클릭으로 초기화"></div>
-
-<!-- Braze Data -->
-<div class="braze-section">
-  <div class="braze-header">
-    <div class="braze-label">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      Braze Data
-    </div>
-    <span class="braze-status" id="braze-status">대기 중</span>
-  </div>
-  <div class="braze-body">
-    <textarea id="braze-input" spellcheck="false"
-      placeholder='Braze JSON을 붙여넣고 [JSON 파싱] 클릭 → 위 폼/HTML 편집기에 자동 채움. 폼/편집기 수정 시 이 영역도 자동 동기화됩니다.'></textarea>
-    <div class="braze-actions">
-      <button class="copy-btn" id="braze-parse-btn" onclick="parseBrazeJson()">JSON 파싱</button>
-      <button class="copy-btn" id="braze-copy-btn" onclick="copyBrazeJson()">복사</button>
-      <button class="copy-btn" onclick="clearBraze()">지우기</button>
     </div>
   </div>
 </div>
@@ -925,27 +927,27 @@
 
         function onMove(ev) {
           var delta = ev.clientY - startY;
-          if (which === 'bf') {
-            // splitter above Braze Fields: drag down → BF shrinks (main grows)
-            var newBF = Math.max(MIN_HEIGHT, startBF - delta);
-            // also cap by available height (leave at least 80px for main)
+          if (which === 'bd') {
+            // splitter between BD (above) and main: drag down → BD grows, main shrinks
+            var newBD = Math.max(MIN_HEIGHT, startBD + delta);
+            // cap so main has at least 80px
             var topbarH = 54, nudgeH = document.getElementById('fmt-nudge').classList.contains('show') ? 34 : 0;
-            var maxBF = window.innerHeight - topbarH - nudgeH - startBD - startStr - 80 - 18; // splitters
+            var maxBD = window.innerHeight - topbarH - nudgeH - startBF - startStr - 80 - 18; // 3 splitters
+            newBD = Math.min(newBD, Math.max(MIN_HEIGHT, maxBD));
+            setCssPx('--bd-height', newBD);
+          } else if (which === 'bf') {
+            // splitter between main and BF: drag down → BF shrinks, main grows
+            var newBF = Math.max(MIN_HEIGHT, startBF - delta);
+            var topbarH2 = 54, nudgeH2 = document.getElementById('fmt-nudge').classList.contains('show') ? 34 : 0;
+            var maxBF = window.innerHeight - topbarH2 - nudgeH2 - startBD - startStr - 80 - 18;
             newBF = Math.min(newBF, Math.max(MIN_HEIGHT, maxBF));
             setCssPx('--bf-height', newBF);
-          } else if (which === 'bd') {
-            // splitter between BF and BD: drag down → BF grows, BD shrinks
-            var newBF2 = startBF + delta;
-            var newBD2 = startBD - delta;
-            if (newBF2 < MIN_HEIGHT || newBD2 < MIN_HEIGHT) return;
-            setCssPx('--bf-height', newBF2);
-            setCssPx('--bd-height', newBD2);
           } else if (which === 'str') {
-            // splitter between BD and Str: drag down → BD grows, Str shrinks
-            var newBD3  = startBD + delta;
+            // splitter between BF and Str: drag down → BF grows, Str shrinks
+            var newBF3  = startBF + delta;
             var newStr3 = startStr - delta;
-            if (newBD3 < MIN_HEIGHT || newStr3 < MIN_HEIGHT) return;
-            setCssPx('--bd-height', newBD3);
+            if (newBF3 < MIN_HEIGHT || newStr3 < MIN_HEIGHT) return;
+            setCssPx('--bf-height', newBF3);
             setCssPx('--str-height', newStr3);
           }
           if (editor) editor.refresh();
